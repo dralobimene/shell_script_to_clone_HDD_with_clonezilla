@@ -1,0 +1,1 @@
+# shell_script_to_clone_HDD_with_clonezilla
