@@ -1,0 +1,788 @@
+#!/bin/bash
+
+
+## code couleur, colorise la sortie echo
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+GREEN='\033[0;32m'
+ORANGE='\033[0;33m'
+PURPLE='\033[0;35m'
+BLUE='\033[0;34m'
+
+## souligne la sortie echo
+bold=$(tput bold)
+normal=$(tput sgr0)
+
+## [7;XXm : fond
+## [9;XXm : barré
+
+## valeurs possibles a la place du 5
+## 0 (normal), 1 (gras), 2 (Dim?), 3 (italique), 4 (ssligné), 5 (clignote), 7 (reverse), 8 (invisible)
+## echo -e '\033[5mYOUR_STRING\033[0m' 
+
+######################################################################################################
+## fonctions
+######################################################################################################
+
+confirm() {
+	read -r -p "{$1} [y/n]" response
+	case "$response" in [yY][eE][sS]|[yY])
+		true;;
+	*)
+		false;;
+esac
+}
+
+#####################################################################################################
+
+function pause(){
+	echo "pr vs permettre de lire les retours console, pause de 3600 secs que vs pvez desactiver"
+	echo "Appuyez sur une touche ou attendez 1 petite heure, le script reprendra son execution"
+	read -n1 -t3600 any_key
+}
+
+#####################################################################################################
+## script
+#####################################################################################################
+echo
+echo "====================================================================================="
+echo "====================================================================================="
+echo "PR LE MOMENT RIEN N'EST ECRIT SUR VOTRE DISQUE DUR"
+echo
+echo -e "${RED}${bold}WARNING${normal}${NC}"
+echo "ce script fonctionne comme un processus a executer dans son ensemble, cependant, rien n'est modifié"
+echo "sur vos disques durs jusqu'a l'etape 27"
+echo "si jamais 1 quelconque etape ne passait pas, vs pourriez editer ce script, corriger l'erreur"
+echo "et l'executer a nouveau dans son entierete"
+echo "1] soyez surs que votre DDI est reconnu en tant que /dev/sda (vs pourrez verifier + tard)"
+echo "2] etape 13: variables definies en dur. Le nbre de variable est = au nbre de partitions du DDI"
+echo "3] etape 24: variables definies en dur. Le nbre de variable est = au nbre de partitions du DDE"
+echo "on affiche 2] et 3] ds le recapitulatif"
+echo
+echo "PR LE MOMENT RIEN N'EST ECRIT SUR VOTRE DISQUE DUR"
+echo "====================================================================================="
+echo "====================================================================================="
+echo "====================================================================================="
+echo
+echo "${bold} --- variables communes, utilisées pour les 2 disques --- ${normal}"
+echo
+echo "====================================================================================="
+echo
+## ETAPE 01: designation du prefixe des disques
+echo -e "ETAPE 01: ${bold}INFORMATION:${normal}"
+echo 'declaration de la variable qui contient le prefixe des disques (/dev/sd)'
+dev="/dev/sd"
+echo
+echo "====================================================================================="
+echo
+## ETAPE 02: variable qui definit votre compte utilisateur
+echo "ETAPE 02: ENTREE:"
+read -p 'entrez votre compte utilisateur: ' utilisateur
+echo 'votre compte utilisateur est: '$utilisateur
+echo
+echo "====================================================================================="
+echo
+## ETAPE 03: variable qui definit le nom de votre cle USB ou est stocké ce script
+echo "ETAPE 03: ENTREE:"
+read -p 'entrez le nom de votre cle USB qui contient ce script: ' nom_cle_USB
+echo 'le nom de la cle USB qui contient ce script est: '$nom_cle_USB
+echo
+echo "====================================================================================="
+echo
+echo "${bold} --- variables et fichiers qui ne servent que pr le DDI --- ${normal}"
+echo
+echo "====================================================================================="
+echo
+## ETAPE 04: creation du fichier retour_commande_fdisk.txt qui enregistre le retour de la commande
+echo "ETAPE 04: VERIFICATION:"
+echo 'verifez que votre DDI est bien reconnu en tant que '$dev'a grace a fdisk -l'
+echo 'creation du fichier retour_commande_fdisk.txt a cote de ce script'
+echo 'veuillez consulter le fichier retour_commande_fdisk.txt pr savoir si votre DDI est bien reconnu en tant que '$dev'a'
+echo 'reconnaissez egalement sous quelle lettre est reconnu votre DDE'
+fdisk -l > retour_commande_fdisk.txt
+echo
+echo "====================================================================================="
+echo
+## ETAPE 05: variable qui definit la lettre designant votre DDI
+echo "ETAPE 05: ENTREE:"
+read -p 'entrez la lettre qui designe votre DDI (tapez une seule lettre, pas besoin de touche retour):' -n 1 lettre_disque_DDI
+echo
+echo 'Votre DDI est désigné avec la lettre: '$lettre_disque_DDI
+echo
+echo "====================================================================================="
+echo
+## ETAPE 06: creer le fichier contientUUIDs.txt pr y enregistrer la sortie de la commande lsblk -o UUID
+echo "ETAPE 06: ${bold}INFORMATION:${normal}"
+echo 'creation du fichier temporaire contientUUIDs.txt qui va contenir les UUIDs de '$dev$lettre_disque_DDI' (votre DDI)'
+lsblk -o UUID $dev$lettre_disque_DDI > contientUUIDs.txt
+echo
+echo "====================================================================================="
+echo
+## ETAPE 07: efface les 2 premieres L du fichier contientUUIDs.txt
+echo "ETAPE 07: ${bold}INFORMATION:${normal}"
+echo "fichier lu contientUUIDs.txt: on efface les 2 premieres L de ce fichier qui ne contiennent rien d'utile"
+sed -i '1,2d' contientUUIDs.txt
+echo
+echo "====================================================================================="
+echo
+echo "PAUSE"
+pause
+echo
+echo "====================================================================================="
+echo
+## ETAPE 08: compte le nbre de L ds le fichier contientUUIDs.txt, SANS afficher le nom du fichier
+nbre_lignes_contientUUIDs_DDI=$(wc -l < contientUUIDs.txt);
+echo "ETAPE 08: VERIFICATION:"
+echo 'nbre de L ds le fichier contientUUIDs.txt = nbre de partitions sur '$dev$lettre_disque_DDI
+echo 'il y a '$nbre_lignes_contientUUIDs_DDI' lignes inscrites ds le fichier contientUUIDs.txt, vs devez avoir le meme nbre de partitions sur votre' $dev$lettre_disque_DDI' (DDI) et sur votre '$dev$lettre_disque_DDE' (DDE), sinon veuillez ne pas executer ce script'
+echo
+echo "====================================================================================="
+echo
+## ETAPE 09: creer le fichier contientPARTLABELs.txt pr y enregistrer la sortie de la commande lsblk -o PARTLABEL
+echo "ETAPE 09: ${bold}INFORMATION:${normal}"
+echo 'creation du fichier temporaire contientPARTLABELs.txt qui va contenir les PARTLABELs de '$dev$lettre_disque_DDI' (votre DDI)'
+lsblk -o PARTLABEL '/dev/sd'$lettre_disque_DDI > contientPARTLABELs.txt
+echo
+echo "====================================================================================="
+echo
+## ETAPE 10: efface les 2 premieres L du fichier contientPARTLABELs.txt
+echo "ETAPE 10: ${bold}INFORMATION:${normal}"
+echo "fichier lu contientPARTLABELs.txt: on efface les 2 premieres L de ce fichier qui ne contiennent rien d'utile"
+sed -i '1,2d' contientPARTLABELs.txt
+echo
+echo "====================================================================================="
+echo
+## ETAPE 11: compte le nbre de L ds le fichier contientPARTLABELs.txt, SANS afficher le nom du fichier
+nbre_lignes_contientPARTLABELs_DDI=$(wc -l < contientPARTLABELs.txt);
+echo "ETAPE 11: VERIFICATION:"
+echo 'nbre de L ds le fichier contientPARTLABELs.txt = nbre de partitions sur '$dev$lettre_disque_DDI
+echo 'il y a '$nbre_lignes_contientPARTLABELs_DDI' lignes inscrites ds le fichier contientPARTLABELs.txt, vs devez avoir le meme nbre de partitions sur votre '$dev$lettre_disque_DDI' (DDI) et sur votre '$dev$lettre_disque_DDE' (DDE), sinon veuillez ne pas executer ce script'
+echo
+echo "====================================================================================="
+echo
+echo "TODO"
+echo "ecrire condition qui verifie qu'il y a le meme nbre de L entre les 2 fichiers precedents"
+echo "contientUUIDs.txt et contientPARTLABELs.txt"
+echo
+echo "====================================================================================="
+echo
+echo "PAUSE"
+pause
+echo
+echo "====================================================================================="
+echo
+## ETAPE 12: afficher les variables assignées dynamiquement concernant le DDI
+echo "ETAPE 12: ${bold}INFORMATION:${normal}"
+echo "on affiche les partitions de ${dev}${lettre_disque_DDI} avec leur UUID et leur PARTLABEL"
+for i in $(seq 1 $nbre_lignes_contientUUIDs_DDI); do
+	UUID_partition_DDI[$i]=$(sed -n "${i}p" contientUUIDs.txt)
+	PARTLABEL_partition_DDI[$i]=$(sed -n "${i}p" contientPARTLABELs.txt)
+	echo "${dev}${lettre_disque_DDI}$i --- ${UUID_partition_DDI[$i]} --- ${PARTLABEL_partition_DDI[$i]}"
+done
+echo
+echo "====================================================================================="
+echo
+## ETAPE 13: definit° de variables pr le DDI qui porteront le nom: uuid_PARTLABEL_disque+lettre+n° de la partition
+echo "ETAPE 13: ${bold}INFORMATION:${normal}"
+echo 'on definit de nvelles variables avec des noms plus explicites ayant les valeurs de la liste au-dessus'
+echo 'on les affiche ds le recapitulatif'
+uuid_efi_sda1=${UUID_partition_DDI[1]}
+uuid_racine_sda2=${UUID_partition_DDI[2]}
+uuid_home_sda3=${UUID_partition_DDI[3]}
+uuid_divers_sda4=${UUID_partition_DDI[4]}
+uuid_swap_sda5=${UUID_partition_DDI[5]}
+echo
+echo "====================================================================================="
+echo
+## ETAPE 14: efface le fichier contientUUIDs.txt ou st inscrites les UUIDs
+echo "ETAPE 14: ${bold}INFORMATION:${normal}"
+echo "on efface le fichier temporaire contientUUIDs.txt qui contenait les UUIDs"
+echo "vs pvez vérifier manuellement"
+rm contientUUIDs.txt
+echo
+echo "====================================================================================="
+echo
+echo "PAUSE"
+pause
+echo
+echo "====================================================================================="
+echo
+## ETAPE 15: efface le fichier contientPARTLABELs.txt ou st inscrites les PARTLABELs
+echo "ETAPE 15: ${bold}INFORMATION:${normal}"
+echo "on efface le fichier temporaire contientPARTLABELs.txt qui contenait les PARTLABELs"
+echo "vs pvez vérifier manuellement"
+rm contientPARTLABELs.txt
+echo
+echo "====================================================================================="
+echo
+echo "${bold} --- variables et fichiers qui ne servent que pr le DDE --- ${normal}"
+echo
+echo "====================================================================================="
+echo
+## ETAPE 16: variable qui definit la lettre designant votre DDE
+echo "ETAPE 16: ENTREE:"
+read -p 'entrez la lettre qui designe votre DDE (tapez une seule lettre, pas besoin de touche retour):' -n 1 lettre_disque_DDE
+echo
+echo 'Votre DDE est désigné avec la lettre: '$lettre_disque_DDE
+echo
+echo "====================================================================================="
+echo
+## ETAPE 17: creer le fichier contientUUIDs.txt pr y enregistrer la sortie de la commande lsblk -o UUID
+echo "ETAPE 17: ${bold}INFORMATION:${normal}"
+echo 'creation du fichier temporaire contientUUIDs.txt qui va contenir les UUIDs de '$dev$lettre_disque_DDE' (votre DDE)'
+lsblk -o UUID $dev$lettre_disque_DDE > contientUUIDs.txt
+echo
+echo "====================================================================================="
+echo
+## ETAPE 18: efface les 2 premieres L du fichier contientUUIDs.txt
+echo "ETAPE 18: ${bold}INFORMATION:${normal}"
+echo "fichier lu contientUUIDs.txt: on efface les 2 premieres L de ce fichier qui ne contiennent rien d'utile"
+sed -i '1,2d' contientUUIDs.txt
+echo
+echo "====================================================================================="
+echo
+echo "PAUSE"
+pause
+echo
+echo "====================================================================================="
+echo
+## ETAPE 19: compte le nbre de L ds le fichier contientUUIDs.txt, SANS afficher le nom du fichier
+nbre_lignes_contientUUIDs_DDE=$(wc -l < contientUUIDs.txt);
+echo "ETAPE 19: VERIFICATION:"
+echo 'nbre de L ds le fichier contientUUIDs.txt = nbre de partitions sur '$dev$lettre_disque_DDE
+echo 'il y a '$nbre_lignes_contientUUIDs_DDE' lignes inscrites ds le fichier contientUUIDs.txt, vs devez avoir le meme nbre de partitions sur votre '$dev$lettre_disque_DDI' (DDI) et sur votre '$dev$lettre_disque_DDE' (DDE), sinon veuillez ne pas executer ce script'
+echo
+echo "====================================================================================="
+echo
+## ETAPE 20: creer le fichier contientPARTLABELs.txt pr y enregistrer la sortie de la commande lsblk -o PARTLABEL
+echo "ETAPE 20: ${bold}INFORMATION:${normal}"
+echo 'creation du fichier temporaire contientPARTLABELs.txt qui va contenir les PARTLABELs de '$dev$lettre_disque_DDE' (votre DDE)'
+lsblk -o PARTLABEL $dev$lettre_disque_DDE > contientPARTLABELs.txt
+echo
+echo "====================================================================================="
+echo
+## ETAPE 21: efface les 2 premieres L du fichier contientPARTLABELs.txt
+echo "ETAPE 21: ${bold}INFORMATION:${normal}"
+echo "fichier lu contientPARTLABELs.txt: on efface les 2 premieres L de ce fichier qui ne contiennent rien d'utile"
+sed -i '1,2d' contientPARTLABELs.txt
+echo
+echo "====================================================================================="
+echo
+echo 'PAUSE'
+pause
+echo
+echo "====================================================================================="
+echo
+## ETAPE 22: compte le nbre de L ds le fichier contientPARTLABELs.txt, SANS afficher le nom du fichier
+nbre_lignes_contientPARTLABELs_DDE=$(wc -l < contientPARTLABELs.txt);
+echo "ETAPE 22: VERIFICATION:"
+echo 'nbre de L ds le fichier contientPARTLABELs.txt = nbre de partitions sur '$dev$lettre_disque_DDE
+echo 'il y a '$nbre_lignes_contientPARTLABELs_DDE' lignes inscrites ds le fichier contientPARTLABELs.txt, vs devez avoir le meme nbre de partitions sur votre '$dev$lettre_disque_DDI' (DDI) et sur votre '$dev$lettre_disque_DDE' (DDE), sinon veuillez ne pas executer ce script'
+echo
+echo "====================================================================================="
+echo
+echo "TODO"
+echo "ecrire condition qui verifie qu'il y a le meme nbre de L entre les 2 fichiers precedents"
+echo "contientUUIDs.txt et contientPARTLABELs.txt"
+echo
+echo "====================================================================================="
+echo
+## ETAPE 23: afficher les variables assignées dynamiquement concernant le DDE
+echo "ETAPE 23: ${bold}INFORMATION:${normal}"
+echo "on affiche les partitions de ${dev}${lettre_disque_DDE} avec leur UUID et leur PARTLABEL"
+for i in $(seq 1 $nbre_lignes_contientUUIDs_DDE); do
+	UUID_partition_DDE[$i]=$(sed -n "${i}p" contientUUIDs.txt)
+	PARTLABEL_partition_DDE[$i]=$(sed -n "${i}p" contientPARTLABELs.txt)
+	echo "${dev}${lettre_disque_DDE}$i --- ${UUID_partition_DDE[$i]} --- ${PARTLABEL_partition_DDE[$i]}"
+done
+echo
+echo "====================================================================================="
+echo
+echo "PAUSE"
+pause
+echo
+echo "====================================================================================="
+echo
+## ETAPE 24: definit° de variables pr le DDI qui porteront le nom: uuid_PARTLABEL_disque+lettre+n° de la partition
+echo "ETAPE 24: ${bold}INFORMATION:${normal}"
+echo 'on definit de nvelles variables avec des noms plus explicites ayant les valeurs UUID de la liste au-dessus'
+echo 'on les affiche ds le recapitulatif'
+declare uuid_efi_sd$lettre_disque_DDE1=${UUID_partition_DDE[1]}
+declare uuid_racine_sd$lettre_disque_DDE2=${UUID_partition_DDE[2]}
+declare uuid_home_sd$lettre_disque_DDE3=${UUID_partition_DDE[3]}
+declare uuid_divers_sd$lettre_disque_DDE4=${UUID_partition_DDE[4]}
+declare uuid_swap_sd$lettre_disque_DDE5=${UUID_partition_DDE[5]}
+echo
+echo "====================================================================================="
+echo
+## ETAPE 25: efface le fichier contientUUIDs.txt ou st inscrites les UUIDs
+echo "ETAPE 25: ${bold}INFORMATION:${normal}"
+echo "on efface le fichier temporaire contientUUIDs.txt qui contenait les UUIDs"
+echo "vs pvez vérifier manuellement"
+rm contientUUIDs.txt
+echo
+echo "====================================================================================="
+echo
+echo "PAUSE"
+pause
+echo
+echo "====================================================================================="
+echo
+## ETAPE 26: efface le fichier contientPARTLABELs.txt ou st inscrites les PARTLABELs
+echo "ETAPE 26: ${bold}INFORMATION:${normal}"
+echo "on efface le fichier temporaire contientPARTLABELs.txt qui contenait les PARTLABELs"
+echo "vs pvez vérifier manuellement"
+rm contientPARTLABELs.txt
+echo
+echo "====================================================================================="
+echo
+## ETAPE 27: efface le fichier retour_commande_fdisk.txt
+echo "ETAPE 27: ${bold}INFORMATION:${normal}"
+echo 'on efface le fichier retour_commande_fdisk.txt'
+rm retour_commande_fdisk.txt
+echo
+echo "====================================================================================="
+echo "====================================================================================="
+echo
+echo -e "${GREEN}${bold}RECAPITULATIF:${normal}${NC}"
+echo "votre compte utilisateur: ${utilisateur}"
+echo "le nom de votre cle USB: ${nom_cle_USB}"
+echo "la lettre qui designe votre DDI: ${lettre_disque_DDI}"
+echo "dc votre DDI est designe sous la forme: ${dev}${lettre_disque_DDI}"
+echo "la lettre qui designe votre DDE: ${lettre_disque_DDE}"
+echo "dc votre DDE est designe sous la forme: ${dev}${lettre_disque_DDE}"
+echo "====================================================================================="
+echo -e "${bold}partitions de votre DDI avec leur UUID                     --- partitions de votre DDE avec leur UUID${NC}"
+echo -e "${bold}nom de variable, valeur                                    --- nom de variable, valeur${NC}"
+echo 'uuid_efi_sda1, '$uuid_efi_sda1 '                                  --- uuid_efi_sd$lettre_disque_DDE1, '$uuid_efi_sd$lettre_disque_DDE1
+echo 'uuid_racine_sda2, '$uuid_racine_sda2 '    --- uuid_racine_sd$lettre_disque_DDE2, '$uuid_racine_sd$lettre_disque_DDE2
+echo 'uuid_home_sda3, '$uuid_home_sda3 '      --- uuid_home_sd$lettre_disque_DDE3, '$uuid_home_sd$lettre_disque_DDE3
+echo 'uuid_divers_sda4, '$uuid_divers_sda4 '    --- uuid_divers_sd$lettre_disque_DDE4, '$uuid_divers_sd$lettre_disque_DDE4
+echo 'uuid_swap_sda5, '$uuid_swap_sda5 '     --- uuid_swap_sd$lettre_disque_DDE5, '$uuid_swap_sd$lettre_disque_DDE5
+echo
+echo "avec ce recapitulatif, vs pvez voir que les partitions st identiques sur les 2 disques"
+echo
+echo "====================================================================================="
+echo "====================================================================================="
+echo
+if confirm "Jusqu a present rien n'a ete modifié sur vos disques, vlez-vs continuer";
+then
+	echo "oui? alors on peut continuer ce script"
+else
+	echo "non?, ok, merci"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 28: demontage des partitions du DDE
+## ameliorations possibles?
+if confirm "etape 28: Démonter les partitions de votre DDE (au cas ou elles seraient montees)?";
+then
+	echo 'on peut demonter les partitions de votre DDE designe en tant que:'${dev}${lettre_disque_DDE}
+	echo 'on demonte '${dev}${lettre_disque_DDE}1' label: '${PARTLABEL_partition_DDE[1]}
+	umount ${dev}${lettre_disque_DDE}1
+	echo 'on demonte '${dev}${lettre_disque_DDE}2' label: '${PARTLABEL_partition_DDE[2]}
+	umount ${dev}${lettre_disque_DDE}2
+	echo 'on demonte '${dev}${lettre_disque_DDE}3' label: '${PARTLABEL_partition_DDE[3]}
+	umount ${dev}${lettre_disque_DDE}3
+	echo 'on demonte '${dev}${lettre_disque_DDE}4' label: '${PARTLABEL_partition_DDE[4]}
+	umount ${dev}${lettre_disque_DDE}4
+	echo 'on demonte '${dev}${lettre_disque_DDE}5' label: '${PARTLABEL_partition_DDE[5]}
+	umount ${dev}${lettre_disque_DDE}5
+else
+	echo "etape 28: vs sortez du script sans démontage des partitions"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 29: modification des UUIDs des partitions du DDE
+## definition de nvelles variables qui contiennent les nvelles UUIDs de chaque partition du DDE
+## afin de modifier les fichiers
+## - /etc/fstab
+## - /boot/grub/grub.cfg
+## - /etc/default/grub
+## - /etc/initramfs-tools/conf.d/resume (ds lequel on modifie l'UUID de la swap)
+## ameliorations possibles?
+if confirm "etape 29: les partitions st demontees, peut on modifier leur UUID?";
+then
+	echo "nveaux UUIDs pour les partitions de "${dev}${lettre_disque_DDE}
+	echo "definit° de nvelles variables qui contiennent les nvelles UUIDs de chaque partition du DDE"
+	
+	## partition efi du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}1" ,label: "${PARTLABEL_partition_DDE[1]}$NC
+	echo "ancienne UUID: "$uuid_efi_sd$lettre_disque_DDE1
+	echo "definition de la variable nvelle_UUID_efi_DDE"
+	dd bs=1 skip=67 count=4 if=$uuid_efi_sd$lettre_disque_DDE1 2>/dev/null | xxd -plain -u | sed -r 's/(..)(..)(..)(..)/\4\3-\2\1/'
+	nvelle_UUID_efi_DDE="F7B5-8A3B"
+       	printf "\x${nvelle_UUID_efi_DDE:7:2}\x${nvelle_UUID_efi_DDE:5:2}\x${nvelle_UUID_efi_DDE:2:2}\x${nvelle_UUID_efi_DDE:0:2}" \ | dd bs=1 seek=67 count=4 conv=notrunc of=$dev$lettre_disque_DDE'1'
+       	echo "nvelle UUID de la partition "${dev}${lettre_disque_DDE1}" ,label: "${PARTLABEL_partition_DDE[1]}", UUID: "${nvelle_UUID_efi_DDE}
+       	echo
+	
+	## partition racine du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}2" ,label: "${PARTLABEL_partition_DDE[2]}${NC}
+	echo "ancienne UUID: "$uuid_racine_sd$lettre_disque_DDE2
+	echo "definition de la variable nvelle_UUID_racine_DDE"
+	e2fsck -f $dev$lettre_disque_DDE'2' ## /dev/sdb3
+	tune2fs -U c6a1d8ed-9e1d-a51f-ef42-a48c637fe8bc $dev$lettre_disque_DDE'2'
+	nvelle_UUID_racine_DDE=c6a1d8ed-9e1d-a51f-ef42-a48c637fe8bc
+	echo "nvelle UUID de la partition "${dev}${lettre_disque_DDE}2" ,label: "${PARTLABEL_partition_DDE[2]}", UUID: "${nvelle_UUID_racine_DDE}
+	echo
+	
+	## partition /home du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}3" ,label: "${PARTLABEL_partition_DDE[3]}${NC}
+	echo "ancienne UUID: "$uuid_home_sd$lettre_disque_DDE3
+	echo "definition de la variable nvelle_UUID_home_DDE"
+	e2fsck -f $dev$lettre_disque_DDE'3' ## /dev/sdb8
+	tune2fs -U f64ac570-18fb-9f17-fad5-6fe80f5bad48 $dev$lettre_disque_DDE'3'
+	nvelle_UUID_home_DDE=f64ac570-18fb-9f17-fad5-6fe80f5bad48
+	echo "nvelle UUID de la partition "${dev}${lettre_disque_DDE}3" ,label: "${PARTLABEL_partition_DDE[3]}", UUID: "${nvelle_UUID_home_DDE}
+	echo
+	
+	## partition /divers du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}4" ,label: "${PARTLABEL_partition_DDE[4]}${NC}
+	echo "ancienne UUID: "$uuid_divers_sd$lettre_disque_DDE4
+	echo "definition de la variable nvelle_UUID_divers_DDE"
+	e2fsck -f $dev$lettre_disque_DDE'4' ## /dev/sdb9
+	tune2fs -U ec57b6ad-f74e-627a-dc4e-e40acfb649db $dev$lettre_disque_DDE'4'
+	nvelle_UUID_divers_DDE=ec57b6ad-f74e-627a-dc4e-e40acfb649db
+	echo "nvelle UUID de la partition "${dev}${lettre_disque_DDE}4" ,label: "${PARTLABEL_partition_DDE[4]}", UUID: "${nvelle_UUID_divers_DDE}
+	echo
+	
+	## partition swap du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}5" ,label: "${PARTLABEL_partition_DDE[5]}${NC}
+	echo "ancienne UUID: "$uuid_swap_sd$lettre_disque_DDE5
+	echo "definition de la variable nvelle_UUID_swap_DDE"
+	mkswap -U dfa27a61-8b1d-2ad7-db94-9157fab1de3a $dev$lettre_disque_DDE'5'
+	nvelle_UUID_swap_DDE=dfa27a61-8b1d-2ad7-db94-9157fab1de3a
+	echo "nvelle UUID de la partition "${dev}${lettre_disque_DDE}5" ,label: "${PARTLABEL_partition_DDE[5]}", UUID: "${nvelle_UUID_swap_DDE}
+	echo
+else
+	echo "etape 29: vs sortez du script sans definir au moins 1 des nveaux UUIDs"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 30: modification des PARTUUIDs des partitions du DDE
+## PENSER, si necessaire A CHANGER LE PARAMETRE DE sgdisk QUI DEFINIT LA PARTITION QUI VA CHANGER DE PARTUUID
+## ameliorations possibles?
+if confirm 'etape 30: les partitions st demontees, peut on modifier leur PARTUUID?';
+then
+	echo "nveaux PARTUUIDs pour les partitions de "${dev}${lettre_disque_DDE}
+	
+	## partition efi du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}1" ,label: "${PARTLABEL_partition_DDE[1]}${NC}
+	sgdisk -u 1:27adf65e-b721-8345-ebac-24adfc716fb8 $dev$lettre_disque_DDE
+	echo
+	
+	## partition racine du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}2" ,label: "${PARTLABEL_partition_DDE[2]}${NC}
+	sgdisk -u 2:93dea51d-e8c4-6dad-fec7-fb72da81cbec $dev$lettre_disque_DDE
+	echo
+	
+	## partition home du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}3" ,label: "${PARTLABEL_partition_DDE[3]}${NC}
+	sgdisk -u 3:6f7b10ac-f42e-a6d4-f270-e7dfc51a042b $dev$lettre_disque_DDE
+	echo
+	
+	## partition divers du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}4" ,label: "${PARTLABEL_partition_DDE[4]}${NC}
+	sgdisk -u 4:b67e4dac-0b4e-dea1-37f2-d8e6ade71b89 $dev$lettre_disque_DDE
+	echo
+	
+	## partition swap du DDE
+	echo -e "${ORANGE}---------- partition: "${dev}${lettre_disque_DDE}5" ,label: "${PARTLABEL_partition_DDE[5]}${NC}
+	sgdisk -u 5:f42ebccd-5d70-06ac-f51f-2ecb4acd90b4 $dev$lettre_disque_DDE
+	echo
+else
+	echo "etape 30: vs sortez du script sans definir au moins 1 des nvo PARTUUID de "${dev}${lettre_disque_DDE}
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 31: monter la partition racine du DDE pr modifier le fichier suivant:
+## - /boot/grub/grub.cfg
+## racine sera montee sur /media/laurent/SonUUID
+## ameliorations possibles?
+if confirm "etape 31: ns avons besoin de monter la partition "${dev}${lettre_disque_DDE}2" (racine) de votre DDE pr modifier le fichier /boot/grub.grub.cfg, vlez-vs la monter?";
+then
+	echo "creation du point de montage"
+	mkdir /media/${utilisateur}/${nvelle_UUID_racine_DDE}
+	echo "on monte la partition "${dev}${lettre_disque_DDE}2" (racine) (de votre DDE) sur /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}
+	mount ${dev}${lettre_disque_DDE}2 /media/${utilisateur}/${nvelle_UUID_racine_DDE}
+else
+	echo "etape 31: vs sortez du script sans monter la partition "${dev}${lettre_disque_DDE}2" (racine) de votre DDE"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 32: modifier le fichier suivant:
+## - /boot/grub/grub.cfg
+if confirm "etape 32: modifier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/boot/grub/grub.cfg du DDE et remplacer les occurences de l'ancienne UUID de la partition racine par des occurences de la nvelle UUID?";
+then
+	echo "modification du fichier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/boot/grub/grub.cfg du DDE"
+	echo "ttes les occurences de l'ancienne UUID de la partition racine: "$uuid_racine_sda2
+	echo "par des ocurrences de la nvelle UUID de la partition racine: "${nvelle_UUID_racine_DDE}
+	sed -i "s/${uuid_racine_sda2}/${nvelle_UUID_racine_DDE}/g" /media/$utilisateur/$nvelle_UUID_racine_DDE/boot/grub/grub.cfg
+	echo "Vous pvez verifier en editant le fichier"
+else
+	echo "etape 32: vs sortez du script sans modifier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/grub/grub.cfg et remplacer les occurences de l'ancienne UUID de la partition racine par des occurences de la nvelle UUID"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 37: modifier le fichier /etc/fstab du DDE
+if confirm "etape 37: modifier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/fstab (de votre DDE) en y inscrivant les nvelles UUIDs des partitions du DDE?";
+then
+	echo "etape 37: mofification du fichier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/fstab du DDE"
+	
+	echo "etape 37-1:ancienne UUID de la racine: "${uuid_racine_sda2}
+	echo "par nvelle UUID de la racine: "${nvelle_UUID_racine_DDE}
+	sed -i "s/${uuid_racine_sda2}/${nvelle_UUID_racine_DDE}/g" /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/fstab
+	
+	echo "etape 37-2: ancienne UUID de efi: "${uuid_efi_sda1}
+	echo "par nvelle UUID de efi: "${nvelle_UUID_efi_DDE}
+	sed -i "s/${uuid_efi_sda1}/${nvelle_UUID_efi_DDE}/g" /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/fstab
+	
+	echo "etape 37-3: ancienne UUID de home: "${uuid_home_sda3}
+	echo "par nvelle UUID de home: "${nvelle_UUID_home_DDE}
+	sed -i "s/${uuid_home_sda3}/${nvelle_UUID_home_DDE}/g" /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/fstab
+	
+	echo "etape 37-4: ancienne UUID de divers: "${uuid_divers_sda4}
+	echo "par nvelle UUID de divers: "${nvelle_UUID_divers_DDE}
+	sed -i "s/${uuid_divers_sda4}/${nvelle_UUID_divers_DDE}/g" /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/fstab
+	
+	echo "etape 37-5: ancienne UUID de swap: "${uuid_swap_sda5}
+	echo "par nvelle UUID de swap: "${nvelle_UUID_swap_DDE}
+	sed -i "s/${uuid_swap_sda5}/${nvelle_UUID_swap_DDE}/g" /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/fstab
+else
+	echo "etape 37: vs sortez du script sans modifier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/fstab et y inscrire 1 (ou +) nvelle(s) UUID(s) de partition du DDE"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 37-6: modifier (en effaçant des L) le fichier /etc/fstab du DDE
+if confirm "etape 37-6: modifier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/fstab (de votre DDE) en y effaçant certaines L?";
+then
+	echo "etape 37-6: ns sommes ds 1 operation de clonage, ns devons effacer certaines L de ce fichier DDE/etc/fstab"
+	sed -i '1,20!d' /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/fstab
+	echo "Vous pvez verifier en editant le fichier"
+else
+	echo "etape 37-6: vs sortez du script sans terminier la modification du fichier DDE/etc/fstab"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 38: modifier (eventuellement) le fichier /etc/default/grub du disque cible (DDE)
+## condition grep qui recherche au - 1 occurence du pattern ds le fichier /etc/default/grub du disque cible, votre DDE
+## on modifie ou pas selon nos souhaits
+if confirm "etape 38: modifier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/default/grub (de votre DDE) en y ajoutant (ou supprimant) eventuellement 1 L?";
+then
+	echo -e "${RED}${bold}ns sommes ds le script de clonage, le disque source est toujours DDI, le disque cible est tjs DDE, c'est une operation de clonage${normal}${NC}"
+	echo -e "${RED}${bold}ns devons dc ajouter la L: GRUB_DISABLE_OS_PROBER=true au fichier DDE/etc/default/grub du disque cible, SI ELLE N EXISTE PAS${normal}${NC}"
+	if grep -q "GRUB_DISABLE_OS_PROBER=true" /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/default/grub
+	then
+		if confirm "occurence GRUB_DISABLE_OS_PROBER=true trouvee ds le fichier situé sur le disque cible DDE/etc/default/grub, vlez vs l'effacer?";
+		then
+			echo "on efface la L GRUB_DISABLE_OS_PROBER=true du fichier situé sur le disque cible DDE/etc/default/grub"
+			sed -i '/GRUB_DISABLE_OS_PROBER=true/d' /media/$utilisateur/$nvelle_UUID_racine_DDE/etc/default/grub
+		else
+			echo "on ne modifie pas le fichier situé sur le disque cible DDE/etc/default/grub"
+		fi
+	else
+		if confirm "occurence GRUB_DISABLE_OS_PROBER=true introuvable ds le fichier situé sur le disque cible DDE/etc/default/grub, vlez vs l'ajouter?";
+		then
+			echo "oui on ajoute la L GRUB_DISABLE_OS_PROBER=true du fichier situé sur le disque cible DDE/etc/default/grub"
+			sed -i '$a\GRUB_DISABLE_OS_PROBER=true' /media/$utilisateur/$nvelle_UUID_racine_DDE/etc/default/grub
+		else
+			echo "on ne modifie pas le fichier situé sur le disque cible DDE/etc/default/grub"
+		fi
+	fi
+else
+	echo "etape 38: on sort du script"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 39: modifier le fichier /etc/initramfs-tools/conf.d/resume du DDE
+if confirm "etape 39: modifier /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/initramfs-tools/conf.d/resume du DDE et remplacer l'UUID de la partition swap "${uuid_swap_sda5}" du DDI par celle de la partition swap "${nvelle_UUID_swap_DDE}" du DDE?"
+then
+	echo "modification de /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/initramfs-tools/conf.d/resume du DDE"
+	echo "UUID inscrite: partition swap "${uuid_swap_sda5}" du DDI remplacee par:"
+	echo "UUID de la partition swap "${nvelle_UUID_swap_DDE}" du DDE"
+	sed -i "s/[[:alnum:]]\{8\}-[[:alnum:]]\{4\}-[[:alnum:]]\{4\}-[[:alnum:]]\{4\}-[[:alnum:]]\{12\}/${nvelle_UUID_swap_DDE}/g" /media/${utilisateur}/${nvelle_UUID_racine_DDE}/etc/initramfs-tools/conf.d/resume
+	echo "+ tard, ns executerons la commande suivante: update-initramfs -c -k all -b boot, lorsque ns serons ds le chroot"
+else
+	echo "etape 39: vs sortez du script sans reecrire UUID de swap de /media/"${utilisateur}"/"${nvelle_UUID_racine_DDE}"/etc/initramfs-tools/conf.d/resume du DDE ($designe_DDE)"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 40: demonter la partition racine du DDE et supprimer le repertoire
+if confirm "etape 40: demonter la partition racine du DDE et supprimer le repertoire de montage?";
+then
+	umount ${dev}${lettre_disque_DDE}2
+	rmdir /media/${utilisateur}/${nvelle_UUID_racine_DDE}
+else
+	echo "etape 40: vs sortez du script sans demonter la partition racine du DDE et/ou supprimer le repertoire de montage"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etapes 41: monter la partition racine du DDI pr y modifier eventuellement le fichier /etc/default/grub
+if confirm "etape 41: ns avons besoin de monter la partition "${dev}${lettre_disque_DDI}2" (racine) de votre DDI pr eventuellement modifier le fichier /etc/default/grub, vlez-vs la monter?";
+then
+	echo "creation du point de montage"
+	mkdir /media/${utilisateur}/${uuid_racine_sda2}
+	echo "on monte la partition "${dev}${lettre_disque_DDI}2" (/dev/sda2) (racine) (de votre DDI) sur /media/"${utilisateur}"/"${uuid_racine_sda3}
+	mount ${dev}${lettre_disque_DDI}2 /media/${utilisateur}/${uuid_racine_sda2}
+else
+	echo "etape 41: vs sortez du script sans monter la partition "${dev}${lettre_disque_DDI}2" (/dev/sda2) (racine) de votre DDI"
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 42: modifier (eventuellement) le fichier /etc/default/grub du disque source (DDI)
+## condition grep qui recherche au - 1 occurence du pattern ds le fichier /etc/default/grub du disque source, votre DDI (/dev/sda)
+## on modifie ou pas selon nos souhaits
+if confirm "etape 42: modifier /media/"${utilisateur}"/"${uuid_racine_sda2}"/etc/default/grub (de votre DDI) en y supprimant (ou ajoutant) eventuellement 1 L?";
+then
+	echo -e "${RED}${bold}ns sommes ds le script de clonage, le disque source est toujours DDI, le disque cible est tjs DDE, c'est une operation de clonage${normal}${NC}"
+	echo -e "${RED}${bold}ns devons dc effacer la L: GRUB_DISABLE_OS_PROBER=true du fichier DDI/etc/default/grub du disque source, SI ELLE EXISTE${normal}${NC}"
+	if grep -q "GRUB_DISABLE_OS_PROBER=true" /media/$utilisateur/$uuid_racine_sda2/etc/default/grub
+	then
+		if confirm "etape 42: occurence GRUB_DISABLE_OS_PROBER=true trouvee ds le fichier situé sur le disque source DDI/etc/default/grub, vlez vs l'effacer?";
+		then
+			echo "on efface la L GRUB_DISABLE_OS_PROBER=true du fichier situé sur le disque source DDI/etc/default/grub"
+			sed -i '/GRUB_DISABLE_OS_PROBER=true/d' /media/$utilisateur/$uuid_racine_sda2/etc/default/grub
+		else
+			echo "on ne modifie pas le fichier situé sur le disque source DDI/etc/default/grub"
+		fi
+	else
+		if confirm "etape 42: occurence GRUB_DISABLE_OS_PROBER=true introuvable ds le fichier situé sur le disque source DDI/etc/default/grub, vlez vs l'ajouter?";
+		then
+			echo "oui on ajoute la L GRUB_DISABLE_OS_PROBER=true du fichier situé sur le disque source DDI/etc/default/grub"
+			sed -i '$a\GRUB_DISABLE_OS_PROBER=true' /media/$utilisateur/$uuid_racine_sda2/etc/default/grub
+		else
+			echo "on ne modifie pas le fichier situé sur le disque source DDI/etc/default/grub"
+		fi
+	fi
+else
+	echo "etape 42: vs sortez du script"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 44: monter la partition efi du DDE pr modifier le fichier suivant:
+## /media/laurent/racineDDE/efi/EFI/debian/grub.cfg
+if confirm "etape 44: ns avons besoin de monter la partition "${dev}${lettre_disque_DDE}1" (efi) de votre DDE pr modifier le fichier /boot/EFI/debian/grub.cfg, vlez-vs la monter?";
+then
+	echo "creation du point de montage"
+	mkdir /media/${utilisateur}/${nvelle_UUID_efi_DDE}
+	echo "on monte la partition "${dev}${lettre_disque_DDE}1" (efi) (de votre DDE) sur /media/"${utilisateur}"/"${nvelle_UUID_efi_DDE}
+	mount ${dev}${lettre_disque_DDE}1 /media/${utilisateur}/${nvelle_UUID_efi_DDE}
+else
+	echo "etape 44: vs sortez du script sans monter la partition "${dev}${lettre_disque_DDE}1" (efi) de votre DDE"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 45 modifier le fichier /boot/efi/EFI/debian/grub.cfg du DDE
+if confirm "etape 45: modifier /media/"${utilisateur}"/"${nvelle_UUID_efi_DDE}"/EFI/debian/grub.cfg (de votre DDE) en y inscrivant la nvelle UUID de la partition racine du DDE?";
+then
+	echo "mofification du fichier /media/"${utilisateur}"/"${nvelle_UUID_efi_DDE}"/EFI/debian/grub.cfg du DDE"
+	echo "UUID inscrite: celle de la partition racine du DDI: ${uuid_racine_sda2}"
+	echo "par nvelle UUID de la partition racine du DDE: ${nvelle_UUID_racine_DDE}"
+	sed -i "s/${uuid_racine_sda2}/${nvelle_UUID_racine_DDE}/g" /media/${utilisateur}/${nvelle_UUID_efi_DDE}/EFI/debian/grub.cfg
+else
+	echo "etape 45: vs sortez du script sans modifier /media/"${utilisateur}"/"${nvelle_UUID_efi_DDE}"/EFI/debian/grub.cfg (de votre DDE) et y inscrire la nvelle UUID de la partition racine du DDE"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 46: on demonte la partition efi du DDE et on supprime le repertoire de montage
+if confirm "etape 46: demonter la partition efi du DDE et supprimer son point (repertoire) de montage?";
+then
+	umount ${dev}${lettre_disque_DDE}1
+	rmdir /media/${utilisateur}/${nvelle_UUID_efi_DDE}
+else
+	echo "etape 46: vs sortez du script sans demonter la partition EFI "${dev}${lettre_disque_DDE}1" (/dev/sdb1) du DDE et/ou supprimer le repertoire de montage"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 47: on definit un nveau disk GUID pr DDE
+if confirm "etape 47: Vlez-vs definir un nvo disk GUID pr votre DDE ${dev}${lettre_disque_DDE} ?";
+then
+	echo "definition d'un nvo disk GUID pr votre DDE ${dev}${lettre_disque_DDE}"
+	sgdisk -U 61DC8AE7-F531-482A-DAC5-D527ACD734FA $dev$lettre_disque_DDE
+else
+	echo "etape 47: vs sortez du script sans definir un nvo disk GUID pr votre DDE ${dev}${lettre_disque_DDE}"
+	exit 0
+fi
+echo
+echo "====================================================================================="
+echo
+## etape 48: lancer les commandes
+## update-grub et
+## update-initramfs -c -k all -b boot
+## depuis le systeme source (DDI)
+## ameliorations possibles?
+if confirm "etape 48: les 4 fichiers cles du DDE ont ete modifiés, vlez vs updater grub et initramfs depuis le systeme source (DDI)?";
+then
+	echo 'preparation du chroot'
+	
+	echo  'on monte /dev sur DDI/dev'
+	mount -o bind /dev /media/${utilisateur}/${uuid_racine_sda2}/dev
+
+	echo 'on monte /sys sur DDI/sys'
+	mount -o bind /sys /media/${utilisateur}/${uuid_racine_sda2}/sys
+
+	echo 'on monte /proc sur DDI/proc'
+	mount -o bind /proc /media/${utilisateur}/${uuid_racine_sda2}/proc
+
+	
+	echo -e "${RED}${bold}AVERTISSEMENT: A LIRE${normal}${NC}"
+	echo 'vs etes pret: ce script vient de chrooter le systeme, votre invite de commande a ete modifiee'
+	echo 'puisque vs avez lance ce script depuis votre cle USB, le chemin qui etait indique ds votre invite de commande etait /media/VotreNomUtilisateur/LeNomDeVotreCle'
+	echo 'maintenant votre invite de commande doit vs indiquer que vs etes tjs root mais vs etes devez etre situé a la racine de votre systeme chroote'
+	echo "tapez la commande suivante pr updater l'initramfs: update-initramfs -c -k all"
+	echo 'tapez la commande suivante pr updater le grub du DDI: update-grub /dev/sda'
+	echo 'puis sortez du systeme chroote en tapant la commande: exit'
+	echo 'le script reprendra son execution'
+	chroot /media/${utilisateur}/${uuid_racine_sda2}
+	
+	echo 'on demonte proc, sys et dev du DDI'
+	umount /media/${utilisateur}/${uuid_racine_sda2}/proc
+	umount /media/${utilisateur}/${uuid_racine_sda2}/sys
+	umount /media/${utilisateur}/${uuid_racine_sda2}/dev
+	
+	echo 'on demonte la racine du DDI et on efface son rep, point de montage'
+	umount /media/${utilisateur}/${uuid_racine_sda2}
+	rmdir /media/${utilisateur}/${uuid_racine_sda2}
+
+	echo "normalement vs etes ok"
+	echo "fermez ttes les consoles et comptes que vs avez pu ouvrir"
+	echo "pr etre sur que les modifs aient ete prises en compte"
+	echo "une x redemarre, Verifiez que tout SEMBLE normal."
+	echo "En vous remerciant"
+else
+	echo "etape 48: vs sortez du script pendant la preparation du chroot ou de l'operation d'updatage de grub ou de celle de l'initramfs depuis DDI"
+	exit 0
+fi
+echo
+echo "====================================================================================="
