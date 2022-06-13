@@ -31,4 +31,6 @@ there is no warranty and won't be responsible for anything<br>
 <br>
 you may use it as you want<br>
 <br>
-Regards
+Regards<br>
+Licence:<br>
+Do what you want with it.
