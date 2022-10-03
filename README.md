@@ -1,4 +1,4 @@
-# shell_script_to_clone_HDD_with_clonezilla
+# shell_script_to_clone_HDD_with_clonezilla (5partitions)
 
 works with linux debian bulls eye. 5 partitions
 
