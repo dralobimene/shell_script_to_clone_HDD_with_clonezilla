@@ -1,6 +1,6 @@
-# shell_script_to_clone_HDD_with_clonezilla (5partitions)
+# shell_script_to_clone_HDD_with_clonezilla (5partitions, no SSD)
 
-works with linux debian bulls eye. 5 partitions
+works with linux debian bulls eye. 5 partitions, no SSD
 
 shell script, copy and paste into text editor, save as a .sh file, make it executable
 <br>
